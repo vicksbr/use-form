@@ -89,10 +89,11 @@ export function useForm<TO>({
 
    function addEvents() {
       Object.keys(refs.current).forEach(path => {
-         if (
-            isCheckbox(refs.current[path].current.type) ||
-            isRadio(refs.current[path].current.type)
-         ) {
+         if (!refs.current[path]) {
+            return
+         }
+         const type = refs.current[path]?.current?.type
+         if (isCheckbox(type) || isRadio(type)) {
             refs.current[path].current.addEventListener(
                'change',
                handleChangeEvent
@@ -110,6 +111,9 @@ export function useForm<TO>({
 
    function removeEvents() {
       Object.keys(refs.current).forEach(path => {
+         if (!refs.current[path]) {
+            return
+         }
          if (
             isCheckbox(refs.current[path].current?.type) ||
             isRadio(refs.current[path].current?.type)
