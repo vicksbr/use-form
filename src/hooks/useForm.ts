@@ -51,7 +51,6 @@ export function useForm<TO>({
          ...refs.current,
          [path]: React.createRef<HTMLInputElement>() as Ref
       }
-
       refs.current = newRefs
       return { name: path, ref: refs.current[path] }
    }
@@ -87,10 +86,17 @@ export function useForm<TO>({
       }))
    }
 
-   function addEvents() {
+   const addEvents = React.useCallback(() => {
       Object.keys(refs.current).forEach(path => {
          if (!refs.current[path]) {
-            return
+            throw new Error(
+               "You are probably trying to use a div as a Input component or your component doesn't have `forwardRef`"
+            )
+         }
+         if (!refs.current[path].current) {
+            throw new Error(
+               "It's appear that your component doesn't accept a ref, if you have a form inside a Modal or Dialog component, consider create another component for your form."
+            )
          }
          const type = refs.current[path]?.current?.type
          if (isCheckbox(type) || isRadio(type)) {
@@ -107,17 +113,23 @@ export function useForm<TO>({
             refs.current[path].current.addEventListener('blur', handleBlurEvent)
          }
       })
-   }
+   }, [refs.current])
 
-   function removeEvents() {
+   const removeEvents = React.useCallback(() => {
       Object.keys(refs.current).forEach(path => {
          if (!refs.current[path]) {
-            return
+            throw new Error(
+               "You are probably trying to use a div as a Input component or your component doesn't have `forwardRef`"
+            )
          }
-         if (
-            isCheckbox(refs.current[path].current?.type) ||
-            isRadio(refs.current[path].current?.type)
-         ) {
+         if (!refs.current[path].current) {
+            throw new Error(
+               "It's appear that your component doesn't accept a ref, if you have a form inside a Modal or Dialog component, consider create another component for your form."
+            )
+         }
+         const type = refs.current[path]?.current?.type
+
+         if (isCheckbox(type) || isRadio(type)) {
             refs.current[path].current.removeEventListener(
                'change',
                handleChangeEvent
@@ -137,25 +149,35 @@ export function useForm<TO>({
             )
          }
       })
-   }
+   }, [refs.current])
 
-   function setRefValue(path: string, value: any) {
-      if (!refs.current[path]) {
-         throw new Error(
-            "You probably are trying to use a div as a Input component or your component doesn't have `forwardRef`"
-         )
-      }
-      if (isCheckbox(refs.current[path].current.type)) {
-         return (refs.current[path].current.checked = value)
-      } else if (refs.current[path]?.current?.children) {
-         Array.from(refs.current[path]?.current?.children).forEach(
-            (element: any) => {
-               element.checked = element.value === value
-            }
-         )
-      }
-      return (refs.current[path].current.value = value || null)
-   }
+   const setRefValue = React.useCallback(
+      (path: string, value: any) => {
+         if (!refs.current[path]) {
+            throw new Error(
+               "You are probably trying to use a div as a Input component or your component doesn't have `forwardRef`"
+            )
+         }
+         if (!refs.current[path].current) {
+            throw new Error(
+               "It's appear that your component doesn't accept a ref, if you have a form inside a Modal or Dialog component, consider create another component for your form."
+            )
+         }
+         const type = refs.current[path]?.current?.type
+
+         if (isCheckbox(type)) {
+            return (refs.current[path].current.checked = value)
+         } else if (refs.current[path]?.current?.children) {
+            Array.from(refs.current[path]?.current?.children).forEach(
+               (element: any) => {
+                  element.checked = element.value === value
+               }
+            )
+         }
+         return (refs.current[path].current.value = value || null)
+      },
+      [refs.current]
+   )
 
    function makeResetAllTouchedPayload() {
       return Object.keys(refs.current).reduce<Touched<TO>>((acc, path) => {
@@ -235,8 +257,9 @@ export function useForm<TO>({
       }
    }, [])
 
-   React.useLayoutEffect(() => {
+   React.useEffect(() => {
       if (initialValues) {
+         console.log(refs.current, initialValues)
          Object.keys(refs.current).forEach(path => {
             setRefValue(path, dot.get(initialValues, path))
          })
@@ -246,7 +269,7 @@ export function useForm<TO>({
       return () => {
          removeEvents()
       }
-   }, [refs])
+   }, [refs.current])
 
    function setForm(next: State<TO> | ((state: State<TO>) => State<TO>)) {
       const nextState = typeof next === 'function' ? next(state) : next
